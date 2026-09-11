@@ -1,0 +1,78 @@
+identity:
+  name: sanvist_dify_guide
+  author: sanvist
+  label:
+    en_US: Call Dify Work Guide
+    zh_Hans: 调用 Dify 作业指导
+description:
+  human:
+    en_US: Call a Dify work-guide chat app and stream flat SANVIST workflow progress.
+    zh_Hans: 调用 Dify 作业指导对话应用，并流式输出扁平 SANVIST 工作流进度。
+  llm: Call the configured Dify work-guide app with the complete current question.
+parameters:
+  - name: query
+    type: string
+    required: true
+    label:
+      en_US: User question
+      zh_Hans: 用户问题
+    human_description:
+      en_US: The complete current work-guide question.
+      zh_Hans: 用户本次输入的完整作业指导问题。
+    llm_description: Preserve model names, operation names, identifiers, and units.
+    form: llm
+  - name: user_id
+    type: string
+    required: true
+    label:
+      en_US: User ID
+      zh_Hans: 用户 ID
+    human_description:
+      en_US: Stable user identifier supplied by the frontend.
+      zh_Hans: 前端提供的稳定用户标识。
+    form: form
+  - name: device_model
+    type: string
+    required: false
+    default: SCC4000A-8
+    label:
+      en_US: Device model
+      zh_Hans: 设备型号
+    human_description:
+      en_US: Device model passed to the work-guide Dify app.
+      zh_Hans: 传给作业指导 Dify 应用的设备型号。
+    form: form
+  - name: conversation_id
+    type: string
+    required: false
+    label:
+      en_US: Target Dify conversation ID
+      zh_Hans: 目标 Dify 会话 ID
+    human_description:
+      en_US: Use the ID returned by this target app. Leave empty on the first turn.
+      zh_Hans: 使用该作业指导应用上一轮返回的 ID；首轮留空。
+    form: form
+output_schema:
+  type: object
+  properties:
+    response_stream:
+      type: string
+      description: Ordered stream containing flat SANVIST progress frames and the guide answer.
+    answer_stream:
+      type: string
+      description: Work-guide answer chunks only.
+    progress_stream:
+      type: string
+      description: Flat SANVIST progress frames only.
+    response_output:
+      type: string
+      description: Complete ordered response assembled after completion.
+    answer:
+      type: string
+      description: Complete clean work-guide answer without progress frames.
+    target_conversation_id:
+      type: string
+      description: Target Dify conversation ID for the next turn.
+extra:
+  python:
+    source: tools/sanvist_dify_guide.py

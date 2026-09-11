@@ -1,0 +1,33 @@
+version: 0.3.2
+type: plugin
+author: sanvist
+name: sanvist_dify_stream
+label:
+  en_US: Sanvist Dify Stream
+  zh_Hans: Sanvist Dify 流式调用
+description:
+  en_US: Invoke multiple Dify chat apps with reusable credentials and flat SANVIST progress frames.
+  zh_Hans: 通过可复用的独立授权调用多个 Dify 对话应用，并输出扁平 SANVIST 节点进度。
+icon: icon.svg
+created_at: 2026-09-03T11:30:00+08:00
+resource:
+  memory: 268435456
+  permission:
+    app:
+      enabled: false
+    tool:
+      enabled: true
+plugins:
+  tools:
+    - provider/sanvist_dify_stream.yaml
+meta:
+  version: 0.0.2
+  arch:
+    - amd64
+    - arm64
+  runner:
+    language: python
+    version: "3.12"
+    entrypoint: main
+privacy: privacy.md
+verified: false

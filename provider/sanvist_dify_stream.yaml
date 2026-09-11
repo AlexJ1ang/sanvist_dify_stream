@@ -1,0 +1,41 @@
+identity:
+  author: sanvist
+  name: sanvist_dify_stream
+  label:
+    en_US: Sanvist Dify Stream
+    zh_Hans: Sanvist Dify 流式调用
+  description:
+    en_US: Invoke target Dify chat apps with one reusable URL and API-key credential pair.
+    zh_Hans: 使用一组可复用的 URL 和 API Key 授权调用目标 Dify 对话应用。
+  icon: icon.svg
+credentials_for_provider:
+  dify_base_url:
+    type: text-input
+    required: false
+    label:
+      en_US: Dify Service API Base URL
+      zh_Hans: Dify Service API 地址
+    placeholder:
+      en_US: https://dify-sanvist.etripon.com
+      zh_Hans: https://dify-sanvist.etripon.com
+    help:
+      en_US: Enter the Dify host or a URL ending in /v1. Do not enter a Studio workflow URL.
+      zh_Hans: 填写 Dify 域名或以 /v1 结尾的地址，不要填写 Studio 工作流页面 URL。
+  dify_api_key:
+    type: secret-input
+    required: false
+    label:
+      en_US: Target app Service API Key
+      zh_Hans: 目标应用 Service API Key
+    placeholder:
+      en_US: app-xxxxxxxx
+      zh_Hans: app-xxxxxxxx
+    help:
+      en_US: Use the API key of the target app. A leading Bearer prefix is tolerated.
+      zh_Hans: 填写目标应用自己的 API Key；误带 Bearer 前缀时插件也会自动兼容。
+tools:
+  - tools/sanvist_dify_ask.yaml
+  - tools/sanvist_dify_guide.yaml
+extra:
+  python:
+    source: provider/sanvist_dify_stream.py

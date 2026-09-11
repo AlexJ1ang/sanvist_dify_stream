@@ -1,0 +1,133 @@
+identity:
+  name: sanvist_dify_ask
+  author: sanvist
+  label:
+    en_US: Call Dify Assistant
+    zh_Hans: 调用 Dify 运营助手
+description:
+  human:
+    en_US: Stream a target Dify app answer and flat SANVIST node-progress frames.
+    zh_Hans: 流式输出目标 Dify 应用回答和扁平 SANVIST 节点进度帧。
+  llm: Call the configured Dify app with the trusted workflow inputs.
+parameters:
+  - name: query
+    type: string
+    required: true
+    label:
+      en_US: User question
+      zh_Hans: 用户问题
+    human_description:
+      en_US: The complete current user question.
+      zh_Hans: 用户本次输入的完整问题。
+    llm_description: Preserve identifiers, dates, and units in the complete question.
+    form: llm
+  - name: conversation_id
+    type: string
+    required: false
+    label:
+      en_US: Target Dify conversation ID
+      zh_Hans: 目标 Dify 会话 ID
+    human_description:
+      en_US: Use the ID returned by this target app. Leave empty on the first turn.
+      zh_Hans: 使用该目标应用上一轮返回的 ID；首轮留空。
+    form: form
+  - name: user_id
+    type: string
+    required: true
+    label:
+      en_US: User ID
+      zh_Hans: 用户 ID
+    human_description:
+      en_US: Stable user identifier supplied by the frontend.
+      zh_Hans: 前端提供的稳定用户标识。
+    form: form
+  - name: role_id
+    type: string
+    required: true
+    default: OWNER
+    label:
+      en_US: Role ID
+      zh_Hans: 用户角色
+    human_description:
+      en_US: Trusted Sanvist role mapped to the target Dify role.
+      zh_Hans: 映射到目标 Dify 角色的可信 Sanvist 用户角色。
+    form: form
+  - name: device_list
+    type: string
+    required: true
+    default: "[]"
+    label:
+      en_US: Allowed devices JSON
+      zh_Hans: 权限设备 JSON 数组
+    human_description:
+      en_US: JSON array containing devices available to the current user.
+      zh_Hans: 当前用户有权访问的设备 JSON 数组。
+    form: form
+  - name: reference_time
+    type: string
+    required: false
+    label:
+      en_US: Reference time
+      zh_Hans: 参考时间
+    human_description:
+      en_US: Current reference time.
+      zh_Hans: 当前参考时间。
+    form: form
+  - name: language
+    type: string
+    required: true
+    default: 简体中文(zh-CN)
+    label:
+      en_US: Language
+      zh_Hans: 回答语言
+    human_description:
+      en_US: Answer language.
+      zh_Hans: 回答语言。
+    form: form
+  - name: channel
+    type: string
+    required: false
+    options:
+      - value: vehicle
+        label:
+          en_US: Vehicle
+          zh_Hans: 车机端
+      - value: app
+        label:
+          en_US: App
+          zh_Hans: 手机 App
+      - value: pc
+        label:
+          en_US: PC
+          zh_Hans: 电脑端
+    label:
+      en_US: Client channel
+      zh_Hans: 来源渠道
+    human_description:
+      en_US: Client entry channel forwarded to the target app as the channel input. Leave empty to omit.
+      zh_Hans: 客户端入口渠道，转发给目标应用的 channel 入参；留空则不传。
+    form: form
+output_schema:
+  type: object
+  properties:
+    response_stream:
+      type: string
+      description: Ordered stream containing flat SANVIST progress frames and the original Dify answer text.
+    answer_stream:
+      type: string
+      description: Original Dify answer chunks only.
+    progress_stream:
+      type: string
+      description: Flat SANVIST progress frames only.
+    response_output:
+      type: string
+      description: Complete ordered response assembled after completion.
+    answer:
+      type: string
+      description: Complete clean Dify answer without progress frames.
+    target_conversation_id:
+      type: string
+      description: Target Dify conversation ID for the next turn.
+extra:
+  python:
+    source: tools/sanvist_dify_ask.py
