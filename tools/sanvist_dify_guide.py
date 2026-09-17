@@ -1,7 +1,7 @@
 import json
 from collections.abc import Generator, Iterable, Iterator
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from dify_plugin import Tool
@@ -97,8 +97,18 @@ class SanvistDifyGuideTool(Tool):
         device_model = str(
             parameters.get("device_model") or "SCC4000A-8"
         ).strip()
+        operator_role = self._operator_role(parameters.get("operator_role"))
+        inspection_image = self._inspection_image(
+            parameters.get("inspection_image")
+        )
+        inputs: dict[str, Any] = {
+            "device_model": device_model,
+            "operator_role": operator_role,
+        }
+        if inspection_image is not None:
+            inputs["inspection_image"] = inspection_image
         payload = {
-            "inputs": {"device_model": device_model},
+            "inputs": inputs,
             "query": query,
             "response_mode": "streaming",
             "conversation_id": conversation_id,
@@ -171,6 +181,52 @@ class SanvistDifyGuideTool(Tool):
         if not emitted_answer:
             raise RuntimeError("作业指导 Dify 应用没有返回 message/answer")
 
+    @staticmethod
+    def _operator_role(value: Any) -> str:
+        role = str(value or "novice_operator").strip()
+        if role not in {"novice_operator", "skilled_operator"}:
+            raise ValueError(
+                "作业指导操作手身份必须是 novice_operator 或 skilled_operator"
+            )
+        return role
+
+    def _inspection_image(self, value: Any) -> dict[str, str] | None:
+        if value in (None, "", []):
+            return None
+        if isinstance(value, list):
+            if len(value) != 1:
+                raise ValueError("现场照片只允许上传一张图片")
+            value = value[0]
+        if hasattr(value, "model_dump"):
+            value = value.model_dump()
+        if not isinstance(value, dict):
+            raise ValueError("现场照片不是有效的 Dify 文件对象")
+
+        file_type = str(
+            value.get("type") or value.get("file_type") or "image"
+        ).strip().lower()
+        mime_type = str(value.get("mime_type") or "").strip().lower()
+        if file_type != "image" and not mime_type.startswith("image/"):
+            raise ValueError("现场照片必须是图片文件")
+
+        raw_url = str(
+            value.get("remote_url") or value.get("url") or ""
+        ).strip()
+        if not raw_url:
+            raise ValueError("现场照片缺少可访问的 URL")
+        parsed = urlparse(raw_url)
+        if not parsed.scheme:
+            raw_url = urljoin(f"{self._dify_base_url()}/", raw_url)
+            parsed = urlparse(raw_url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("现场照片 URL 无效")
+
+        return {
+            "type": "image",
+            "transfer_method": "remote_url",
+            "url": raw_url,
+        }
+
     def _stream_sse(
         self,
         payload: dict[str, Any],
@@ -191,16 +247,18 @@ class SanvistDifyGuideTool(Tool):
                 yield from self._iter_sse_events(response.iter_lines())
 
     def _dify_url(self) -> str:
+        return f"{self._dify_base_url()}/v1/chat-messages"
+
+    def _dify_base_url(self) -> str:
         base_url = str(
             self.runtime.credentials.get("dify_base_url") or ""
-        ).strip()
+        ).strip().rstrip("/")
         parsed = urlparse(base_url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise ValueError("Dify Service API 地址配置无效")
-        base_url = base_url.rstrip("/")
         if base_url.endswith("/v1"):
-            return f"{base_url}/chat-messages"
-        return f"{base_url}/v1/chat-messages"
+            return base_url[:-3]
+        return base_url
 
     def _dify_headers(self) -> dict[str, str]:
         token = str(

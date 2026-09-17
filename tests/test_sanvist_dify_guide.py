@@ -45,7 +45,10 @@ def test_payload_matches_dify_chat_messages_contract():
     )
 
     assert captured == {
-        "inputs": {"device_model": "SCC4000A-8"},
+        "inputs": {
+            "device_model": "SCC4000A-8",
+            "operator_role": "novice_operator",
+        },
         "query": "如何检查设备",
         "response_mode": "streaming",
         "conversation_id": "conversation-1",
@@ -58,6 +61,86 @@ def test_payload_matches_dify_chat_messages_contract():
         "answer",
     ]
     assert items[-1]["content"] == "作业步骤"
+
+
+def test_payload_forwards_operator_role_and_inspection_image():
+    tool = object.__new__(GuideTool)
+    captured = {}
+
+    def fake_stream(payload):
+        captured.update(payload)
+        return iter(
+            [("", {"event": "message", "answer": "检查结果"})]
+        )
+
+    tool._stream_sse = fake_stream
+    list(
+        tool._call_guide(
+            "请检查照片",
+            {
+                "user_id": "u-2",
+                "device_model": "390E-REEV",
+                "operator_role": "skilled_operator",
+                "inspection_image": {
+                    "type": "image",
+                    "transfer_method": "remote_url",
+                    "remote_url": "https://files.example.com/check.jpg",
+                    "mime_type": "image/jpeg",
+                },
+            },
+        )
+    )
+
+    assert captured["inputs"] == {
+        "device_model": "390E-REEV",
+        "operator_role": "skilled_operator",
+        "inspection_image": {
+            "type": "image",
+            "transfer_method": "remote_url",
+            "url": "https://files.example.com/check.jpg",
+        },
+    }
+    assert captured["files"] == []
+
+
+def test_local_inspection_image_uses_absolute_preview_url():
+    tool = object.__new__(GuideTool)
+    tool.runtime = type(
+        "Runtime",
+        (),
+        {"credentials": {"dify_base_url": "https://dify.example.com/v1"}},
+    )()
+
+    image = tool._inspection_image(
+        {
+            "type": "image",
+            "transfer_method": "local_file",
+            "url": "/files/file-id/file-preview?sign=test",
+            "mime_type": "image/png",
+        }
+    )
+
+    assert image == {
+        "type": "image",
+        "transfer_method": "remote_url",
+        "url": "https://dify.example.com/files/file-id/file-preview?sign=test",
+    }
+
+
+def test_inspection_image_rejects_non_image_file():
+    tool = object.__new__(GuideTool)
+    try:
+        tool._inspection_image(
+            {
+                "type": "document",
+                "url": "https://files.example.com/manual.pdf",
+                "mime_type": "application/pdf",
+            }
+        )
+    except ValueError as exc:
+        assert str(exc) == "现场照片必须是图片文件"
+    else:
+        raise AssertionError("non-image input should be rejected")
 
 
 def test_guide_progress_is_flat_sanvist_json():
