@@ -43,24 +43,15 @@ parameters:
       zh_Hans: 传给作业指导 Dify 应用的设备型号。
     form: form
   - name: operator_role
-    type: select
+    type: string
     required: false
     default: novice_operator
-    options:
-      - value: novice_operator
-        label:
-          en_US: Novice operator
-          zh_Hans: 新手操作手
-      - value: skilled_operator
-        label:
-          en_US: Skilled operator
-          zh_Hans: 熟练操作手
     label:
       en_US: Operator role
       zh_Hans: 作业指导操作手身份
     human_description:
-      en_US: Operator role passed to the work-guide Dify app.
-      zh_Hans: 传给作业指导 Dify 应用的操作手身份。
+      en_US: Bind the upstream operator_role variable. The value is passed through unchanged.
+      zh_Hans: 绑定上游 operator_role 变量，英文值将原样传给作业指导 Dify 应用。
     form: form
   - name: inspection_image
     type: file

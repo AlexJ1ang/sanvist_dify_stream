@@ -1,6 +1,8 @@
 import importlib.util
 from pathlib import Path
 
+import yaml
+
 
 MODULE_PATH = Path(__file__).parents[1] / "tools" / "sanvist_dify_guide.py"
 SPEC = importlib.util.spec_from_file_location("sanvist_dify_guide", MODULE_PATH)
@@ -8,6 +10,23 @@ assert SPEC and SPEC.loader
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 GuideTool = MODULE.SanvistDifyGuideTool
+
+
+def test_operator_role_is_a_bindable_string_configuration():
+    declaration_path = (
+        Path(__file__).parents[1] / "tools" / "sanvist_dify_guide.yaml"
+    )
+    declaration = yaml.safe_load(declaration_path.read_text(encoding="utf-8"))
+    parameter = next(
+        item
+        for item in declaration["parameters"]
+        if item["name"] == "operator_role"
+    )
+
+    assert parameter["type"] == "string"
+    assert parameter["form"] == "form"
+    assert parameter["default"] == "novice_operator"
+    assert "options" not in parameter
 
 
 def test_payload_matches_dify_chat_messages_contract():
