@@ -1,4 +1,5 @@
 import json
+import time
 from collections.abc import Generator, Iterable, Iterator
 from typing import Any
 from urllib.parse import urljoin, urlparse
@@ -6,6 +7,67 @@ from urllib.parse import urljoin, urlparse
 import httpx
 from dify_plugin import Tool
 from dify_plugin.entities.tool import ToolInvokeMessage
+
+
+class _GuideAnswerChunker:
+    """Stream prose in small pieces while keeping COMPONENT cards intact."""
+
+    _OPEN = "<COMPONENT>"
+    _CLOSE = "</COMPONENT>"
+    MAX_CHARS = 48
+
+    def __init__(self) -> None:
+        self._pending = ""
+        self._inside_component = False
+
+    @classmethod
+    def _plain_chunks(cls, text: str) -> Iterator[str]:
+        for offset in range(0, len(text), cls.MAX_CHARS):
+            yield text[offset : offset + cls.MAX_CHARS]
+
+    @classmethod
+    def _partial_open_length(cls, text: str) -> int:
+        for length in range(min(len(text), len(cls._OPEN) - 1), 0, -1):
+            if text.endswith(cls._OPEN[:length]):
+                return length
+        return 0
+
+    def feed(self, text: str) -> Iterator[str]:
+        self._pending += text
+        while self._pending:
+            if self._inside_component:
+                end = self._pending.find(self._CLOSE)
+                if end < 0:
+                    return
+                end += len(self._CLOSE)
+                yield self._pending[:end]
+                self._pending = self._pending[end:]
+                self._inside_component = False
+                continue
+
+            start = self._pending.find(self._OPEN)
+            if start >= 0:
+                yield from self._plain_chunks(self._pending[:start])
+                self._pending = self._pending[start:]
+                self._inside_component = True
+                continue
+
+            retained = self._partial_open_length(self._pending)
+            if retained:
+                plain = self._pending[:-retained]
+                self._pending = self._pending[-retained:]
+            else:
+                plain = self._pending
+                self._pending = ""
+            yield from self._plain_chunks(plain)
+            return
+
+    def finish(self) -> Iterator[str]:
+        # Preserve malformed/truncated upstream text instead of dropping it.
+        if self._pending:
+            yield from self._plain_chunks(self._pending)
+        self._pending = ""
+        self._inside_component = False
 
 
 class SanvistDifyGuideTool(Tool):
@@ -19,6 +81,8 @@ class SanvistDifyGuideTool(Tool):
 
         answer_parts: list[str] = []
         response_parts: list[str] = []
+        chunker = _GuideAnswerChunker()
+        paced_chunks = 0
         target_conversation_id = str(
             tool_parameters.get("conversation_id") or ""
         ).strip()
@@ -36,12 +100,23 @@ class SanvistDifyGuideTool(Tool):
                         continue
                     answer_parts.append(content)
                     response_parts.append(content)
-                    yield self.create_stream_variable_message(
-                        "response_stream", content
-                    )
-                    yield self.create_stream_variable_message(
-                        "answer_stream", content
-                    )
+                    for index, piece in enumerate(chunker.feed(content)):
+                        # A single upstream message may contain the entire answer.
+                        # Pace only chunks derived from that oversized message;
+                        # naturally streamed upstream chunks are forwarded promptly.
+                        if (
+                            index > 0
+                            and len(content) > chunker.MAX_CHARS
+                            and paced_chunks < 120
+                        ):
+                            time.sleep(0.025)
+                            paced_chunks += 1
+                        yield self.create_stream_variable_message(
+                            "response_stream", piece
+                        )
+                        yield self.create_stream_variable_message(
+                            "answer_stream", piece
+                        )
                 elif kind == "progress":
                     progress = item.get("progress")
                     if not isinstance(progress, dict):
@@ -55,6 +130,13 @@ class SanvistDifyGuideTool(Tool):
                         "progress_stream", frame
                     )
         except Exception as exc:
+            for piece in chunker.finish():
+                yield self.create_stream_variable_message(
+                    "response_stream", piece
+                )
+                yield self.create_stream_variable_message(
+                    "answer_stream", piece
+                )
             message = str(exc).strip() or type(exc).__name__
             progress: dict[str, Any] = {
                 "stage": "error",
@@ -73,6 +155,10 @@ class SanvistDifyGuideTool(Tool):
             response_parts.append(fallback)
             yield self.create_stream_variable_message("response_stream", fallback)
             yield self.create_stream_variable_message("answer_stream", fallback)
+
+        for piece in chunker.finish():
+            yield self.create_stream_variable_message("response_stream", piece)
+            yield self.create_stream_variable_message("answer_stream", piece)
 
         answer = "".join(answer_parts).strip()
         if not answer:

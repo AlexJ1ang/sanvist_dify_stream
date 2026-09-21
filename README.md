@@ -1,4 +1,4 @@
-# Sanvist Dify Stream 0.3.4
+# Sanvist Dify Stream 0.3.5
 
 独立调用目标 Dify 对话应用，不复用 Sanvist Python 业务事件协议。
 
@@ -15,8 +15,15 @@
 <SANVIST>{"stage":"node_started","phase":"started","message":"查询事实数据正在执行","dify_event":"node_started","conversation_id":"..."}</SANVIST>
 ```
 
-不存在外层 `{"event":"status","data":...}`。目标 Dify 的回答正文、报表和 ECharts
-按原始增量直接写入同一个 `response_stream`，不转换成 Python 事件。
+不存在外层 `{"event":"status","data":...}`。运营助手的回答正文、报表和 ECharts
+按原始增量写入同一个 `response_stream`，不转换成 Python 事件。
+
+作业指导工具从目标应用收到整段回答时，会把卡片以外的普通正文拆成约 48 字的
+流块、逐块发送到 `response_stream` 和 `answer_stream`，并作短暂间隔，避免前端
+一次性显示整段文字。`<COMPONENT>...</COMPONENT>` 卡片保持完整，不拆分 JSON；
+最终的 `answer`、`response_output` 和会话 ID 输出仍保持原有契约。若目标工作流
+本身直到末尾的校验/回复节点才产出正文，插件无法让正文早于该节点开始出现，
+但收到正文后会渐进展示。运营助手工具不受这项改动影响。
 
 ## Provider 配置
 

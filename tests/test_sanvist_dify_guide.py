@@ -2,6 +2,7 @@ import importlib.util
 from pathlib import Path
 
 import yaml
+from dify_plugin.entities.tool import ToolInvokeMessage
 
 
 MODULE_PATH = Path(__file__).parents[1] / "tools" / "sanvist_dify_guide.py"
@@ -210,3 +211,96 @@ def test_guide_base_url_appends_chat_messages():
         {"credentials": {"dify_base_url": "https://dify.example.com/v1"}},
     )()
     assert tool._dify_url() == "https://dify.example.com/v1/chat-messages"
+
+
+def test_chunker_preserves_split_component_tags_and_exact_text():
+    chunker = MODULE._GuideAnswerChunker()
+    component = (
+        '<COMPONENT>\n{"scene":"guide","type":"source",'
+        '"data":{"evidence":[]}}\n</COMPONENT>'
+    )
+    original = "普通正文" * 30 + component + "后续说明" * 25
+    pieces = []
+    for offset in range(0, len(original), 17):
+        pieces.extend(chunker.feed(original[offset : offset + 17]))
+    pieces.extend(chunker.finish())
+
+    assert "".join(pieces) == original
+    assert component in pieces
+    assert all(len(piece) <= chunker.MAX_CHARS or piece == component for piece in pieces)
+
+
+def test_large_guide_answer_reaches_stream_before_tool_finishes(monkeypatch):
+    tool = object.__new__(GuideTool)
+    tool.response_type = ToolInvokeMessage
+    component = (
+        '<COMPONENT>\n{"scene":"guide","type":"image",'
+        '"data":{"items":[]}}\n</COMPONENT>'
+    )
+    answer = "先核对设备状态。" * 45 + component + "随后继续操作。" * 35
+    upstream_finished = []
+    delays = []
+
+    def fake_call(query, parameters):
+        yield {"kind": "answer", "content": answer}
+        upstream_finished.append(True)
+
+    tool._call_guide = fake_call
+    monkeypatch.setattr(MODULE.time, "sleep", delays.append)
+
+    output = tool._invoke({"query": "怎样操作"})
+    first = next(output)
+    assert first.message.variable_name == "response_stream"
+    assert first.message.stream is True
+    assert len(first.message.variable_value) <= MODULE._GuideAnswerChunker.MAX_CHARS
+    assert not upstream_finished
+
+    messages = [first, *output]
+    streamed = {
+        name: [
+            item.message.variable_value
+            for item in messages
+            if item.type.value == "variable"
+            and item.message.variable_name == name
+            and item.message.stream
+        ]
+        for name in ("response_stream", "answer_stream")
+    }
+    assert upstream_finished
+    assert "".join(streamed["response_stream"]) == answer
+    assert "".join(streamed["answer_stream"]) == answer
+    assert component in streamed["response_stream"]
+    assert len(streamed["response_stream"]) > 10
+    assert delays and all(delay == 0.025 for delay in delays)
+
+    final_variables = {
+        item.message.variable_name: item.message.variable_value
+        for item in messages
+        if item.type.value == "variable" and not item.message.stream
+    }
+    assert final_variables["answer"] == answer
+    assert final_variables["response_output"] == answer
+
+
+def test_native_small_upstream_chunks_are_not_artificially_delayed(monkeypatch):
+    tool = object.__new__(GuideTool)
+    tool.response_type = ToolInvokeMessage
+    tool._call_guide = lambda query, parameters: iter(
+        [
+            {"kind": "answer", "content": "你好"},
+            {"kind": "answer", "content": "，世界。"},
+        ]
+    )
+    delays = []
+    monkeypatch.setattr(MODULE.time, "sleep", delays.append)
+
+    messages = list(tool._invoke({"query": "问候"}))
+    parts = [
+        item.message.variable_value
+        for item in messages
+        if item.type.value == "variable"
+        and item.message.variable_name == "response_stream"
+        and item.message.stream
+    ]
+    assert parts == ["你好", "，世界。"]
+    assert delays == []
