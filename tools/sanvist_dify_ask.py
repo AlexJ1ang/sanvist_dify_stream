@@ -1,4 +1,5 @@
 import json
+import re
 from collections.abc import Generator, Iterable, Iterator
 from datetime import datetime
 from typing import Any
@@ -117,6 +118,9 @@ class SanvistDifyAskTool(Tool):
         channel = self._channel(parameters.get("channel"))
         if channel:
             payload["inputs"]["channel"] = channel
+        sandbox = self._sandbox(parameters.get("sandbox"))
+        if sandbox:
+            payload["inputs"]["sandbox"] = sandbox
 
         final_conversation_id = conversation_id
         emitted_answer = False
@@ -317,6 +321,12 @@ class SanvistDifyAskTool(Tool):
         item = flush()
         if item is not None:
             yield item
+
+    @staticmethod
+    def _sandbox(value: Any) -> str:
+        # 展会多人沙箱编号，由网关按登录用户分配；只放行 sbNNNN，其他值一律不传（子应用即连主库）
+        sandbox = str(value or "").strip()
+        return sandbox if re.fullmatch(r"sb\d{4}", sandbox) else ""
 
     @staticmethod
     def _channel(value: Any) -> str:

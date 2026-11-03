@@ -107,6 +107,16 @@ parameters:
       en_US: Client entry channel forwarded to the target app as the channel input. Leave empty to omit.
       zh_Hans: 客户端入口渠道，转发给目标应用的 channel 入参；留空则不传。
     form: form
+  - name: sandbox
+    type: string
+    required: false
+    label:
+      en_US: Demo sandbox
+      zh_Hans: 演示沙箱
+    human_description:
+      en_US: Exhibition sandbox id (sbNNNN) forwarded to the target app as the sandbox input. Leave empty to omit.
+      zh_Hans: 展会多人沙箱编号（sbNNNN），转发给目标应用的 sandbox 入参；留空或格式不对则不传。
+    form: form
 output_schema:
   type: object
   properties:

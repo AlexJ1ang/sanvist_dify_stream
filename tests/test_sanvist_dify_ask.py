@@ -159,6 +159,36 @@ def test_channel_is_forwarded_only_when_present():
     assert "channel" not in captured["payload"]["inputs"]
 
 
+def test_sandbox_only_accepts_sbnnnn():
+    assert ToolClass._sandbox("sb0042") == "sb0042"
+    assert ToolClass._sandbox(" sb1200 ") == "sb1200"
+    assert ToolClass._sandbox("") == ""
+    assert ToolClass._sandbox(None) == ""
+    assert ToolClass._sandbox("sb42") == ""
+    assert ToolClass._sandbox("sb00421") == ""
+    assert ToolClass._sandbox("sanvist_task") == ""
+
+
+def test_sandbox_is_forwarded_only_when_valid():
+    captured: dict[str, dict] = {}
+
+    def fake_stream(payload):
+        captured["payload"] = payload
+        return iter(
+            [("", {"event": "message", "answer": "好", "conversation_id": "c-1"})]
+        )
+
+    tool = object.__new__(ToolClass)
+    tool._stream_sse = fake_stream
+    list(tool._call_dify("今天任务", {"user_id": "u1", "role_id": "OWNER", "sandbox": "sb0042"}))
+    assert captured["payload"]["inputs"]["sandbox"] == "sb0042"
+
+    for value in ("", "bad", None):
+        captured.clear()
+        list(tool._call_dify("今天任务", {"user_id": "u1", "role_id": "OWNER", "sandbox": value}))
+        assert "sandbox" not in captured["payload"]["inputs"]
+
+
 def test_failed_workflow_finished_surfaces_the_real_error():
     tool = object.__new__(ToolClass)
     tool._stream_sse = lambda payload: iter(
