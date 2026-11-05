@@ -1,4 +1,4 @@
-# Sanvist Dify Stream 0.3.6
+# Sanvist Dify Stream 0.3.7
 
 独立调用目标 Dify 对话应用，不复用 Sanvist Python 业务事件协议。
 
@@ -9,7 +9,7 @@
 
 ## 展会多人沙箱（0.3.6 起）
 
-`sanvist_dify_ask` 多一个可选配置参数 `sandbox`：值为 `sbNNNN` 时写进目标应用的 `inputs.sandbox`，为空或格式不对时不传，请求与 0.3.5 完全一致。总入口把网关注入的 `sandbox` 绑到 TASK 节点，任务协同助手据此连对应沙箱库。方案见工作区 `docs/20-任务协同/任务协同-展会多人沙箱.md`。
+`sanvist_dify_ask` 多一个可选配置参数 `sandbox`：值为 `sbNNNN` 时写进目标应用的 `inputs.sandbox`，为空或格式不对时不传，请求与 0.3.5 完全一致。0.3.7 起不区分大小写，统一转小写后再校验和透传（`SB0001` → `sb0001`）。总入口把网关注入的 `sandbox` 绑到 TASK 节点，任务协同助手据此连对应沙箱库。方案见工作区 `docs/20-任务协同/任务协同-展会多人沙箱.md`。
 
 ## 输出协议
 

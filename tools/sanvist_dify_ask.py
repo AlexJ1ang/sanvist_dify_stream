@@ -324,8 +324,8 @@ class SanvistDifyAskTool(Tool):
 
     @staticmethod
     def _sandbox(value: Any) -> str:
-        # 展会多人沙箱编号，由网关按登录用户分配；只放行 sbNNNN，其他值一律不传（子应用即连主库）
-        sandbox = str(value or "").strip()
+        # 展会多人沙箱编号，由网关按登录用户分配；只放行 sbNNNN（不区分大小写，统一转小写），其他值一律不传（子应用即连主库）
+        sandbox = str(value or "").strip().lower()
         return sandbox if re.fullmatch(r"sb\d{4}", sandbox) else ""
 
     @staticmethod

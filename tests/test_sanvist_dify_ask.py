@@ -162,6 +162,8 @@ def test_channel_is_forwarded_only_when_present():
 def test_sandbox_only_accepts_sbnnnn():
     assert ToolClass._sandbox("sb0042") == "sb0042"
     assert ToolClass._sandbox(" sb1200 ") == "sb1200"
+    assert ToolClass._sandbox("SB0001") == "sb0001"
+    assert ToolClass._sandbox(" Sb0042 ") == "sb0042"
     assert ToolClass._sandbox("") == ""
     assert ToolClass._sandbox(None) == ""
     assert ToolClass._sandbox("sb42") == ""
